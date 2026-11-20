@@ -25,3 +25,44 @@ resource "azurerm_network_security_group" "this" {
   resource_group_name = azurerm_resource_group.this.name
   tags                = var.tags
 }
+
+resource "azurerm_subnet_network_security_group_association" "this" {
+  subnet_id                 = azurerm_subnet.this.id
+  network_security_group_id = azurerm_network_security_group.this.id
+}
+
+locals {
+  inbound_rules = {
+    ssh = {
+      priority = 110
+      port     = "22"
+      source   = var.ssh_source_address_prefix
+    }
+    http = {
+      priority = 120
+      port     = "80"
+      source   = "*"
+    }
+    https = {
+      priority = 130
+      port     = "443"
+      source   = "*"
+    }
+  }
+}
+
+resource "azurerm_network_security_rule" "inbound" {
+  for_each = local.inbound_rules
+
+  name                        = "allow-${each.key}"
+  priority                    = each.value.priority
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = each.value.port
+  source_address_prefix       = each.value.source
+  destination_address_prefix  = "*"
+  resource_group_name         = azurerm_resource_group.this.name
+  network_security_group_name = azurerm_network_security_group.this.name
+}
